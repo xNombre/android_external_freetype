@@ -141,6 +141,16 @@
 #define FT_INT_MAX    INT_MAX
 #define FT_ULONG_MAX  ULONG_MAX
 
+#define ADD_LONG( a, b )                                    \
+          (long)( (unsigned long)(a) + (unsigned long)(b) )
+#define SUB_LONG( a, b )                                    \
+          (long)( (unsigned long)(a) - (unsigned long)(b) )
+#define MUL_LONG( a, b )                                    \
+          (long)( (unsigned long)(a) * (unsigned long)(b) )
+#define NEG_LONG( a )                                       \
+          (long)( -(unsigned long)(a) )
+
+
 #define ft_memset   memset
 
 #define ft_setjmp   setjmp
@@ -264,6 +274,7 @@ typedef ptrdiff_t  FT_PtrDist;
 #include "ftgrays.h"
 #include FT_INTERNAL_OBJECTS_H
 #include FT_INTERNAL_DEBUG_H
+#include FT_INTERNAL_CALC_H
 #include FT_OUTLINE_H
 
 #include "ftsmerrs.h"
@@ -1135,7 +1146,7 @@ typedef ptrdiff_t  FT_PtrDist;
       /* s is L * the perpendicular distance from P1 to the line P0-P3. */
       dx1 = arc[1].x - arc[0].x;
       dy1 = arc[1].y - arc[0].y;
-      s = FT_ABS( dy * dx1 - dx * dy1 );
+      s = FT_ABS( SUB_LONG( MUL_LONG( dy, dx1 ), MUL_LONG( dx, dy1 ) ) );
 
       if ( s > s_limit )
         goto Split;
@@ -1143,7 +1154,7 @@ typedef ptrdiff_t  FT_PtrDist;
       /* s is L * the perpendicular distance from P2 to the line P0-P3. */
       dx2 = arc[2].x - arc[0].x;
       dy2 = arc[2].y - arc[0].y;
-      s = FT_ABS( dy * dx2 - dx * dy2 );
+      s = FT_ABS( SUB_LONG( MUL_LONG( dy, dx2 ), MUL_LONG( dx, dy2 ) ) );
 
       if ( s > s_limit )
         goto Split;
@@ -1222,31 +1233,21 @@ typedef ptrdiff_t  FT_PtrDist;
   static void
   gray_hline( RAS_ARG_ TCoord  x,
                        TCoord  y,
-                       TArea   area,
+                       TArea   coverage,
                        TCoord  acount )
   {
-    int      coverage;
-    FT_Span  span;
-
-
-    /* compute the coverage line's coverage, depending on the    */
-    /* outline fill rule                                         */
-    /*                                                           */
-    /* the coverage percentage is area/(PIXEL_BITS*PIXEL_BITS*2) */
-    /*                                                           */
-    coverage = (int)( area >> ( PIXEL_BITS * 2 + 1 - 8 ) );
-                                                    /* use range 0..256 */
+    /* scale the coverage from 0..(ONE_PIXEL*ONE_PIXEL*2) to 0..256  */
+    coverage >>= PIXEL_BITS * 2 + 1 - 8;
     if ( coverage < 0 )
-      coverage = -coverage;
+      coverage = -coverage - 1;
 
+    /* compute the line's coverage depending on the outline fill rule */
     if ( ras.outline.flags & FT_OUTLINE_EVEN_ODD_FILL )
     {
       coverage &= 511;
 
-      if ( coverage > 256 )
-        coverage = 512 - coverage;
-      else if ( coverage == 256 )
-        coverage = 255;
+      if ( coverage >= 256 )
+        coverage = 511 - coverage;
     }
     else
     {
@@ -1257,6 +1258,9 @@ typedef ptrdiff_t  FT_PtrDist;
 
     if ( ras.render_span )  /* for FT_RASTER_FLAG_DIRECT only */
     {
+      FT_Span  span;
+
+
       span.x        = (short)x;
       span.len      = (unsigned short)acount;
       span.coverage = (unsigned char)coverage;
