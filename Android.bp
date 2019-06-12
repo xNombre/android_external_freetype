@@ -22,6 +22,7 @@ cc_library_shared {
         "src/base/ftinit.c",
         "src/base/ftgasp.c",
         "src/base/ftmm.c",
+        "src/base/ftdebug.c",
         "src/gzip/ftgzip.c",
         "src/raster/raster.c",
         "src/sfnt/sfnt.c",
