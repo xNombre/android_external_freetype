@@ -5,7 +5,7 @@
  *   Load the basic TrueType kerning table.  This doesn't handle
  *   kerning data within the GPOS table at the moment.
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -17,10 +17,9 @@
  */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
-#include FT_TRUETYPE_TAGS_H
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftstream.h>
+#include <freetype/tttags.h>
 #include "ttkern.h"
 
 #include "sferrors.h"
@@ -33,7 +32,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_ttkern
+#define FT_COMPONENT  ttkern
 
 
 #undef  TT_KERN_INDEX

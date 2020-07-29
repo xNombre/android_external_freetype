@@ -4,7 +4,7 @@
  *
  *   TrueType font driver implementation (body).
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -16,22 +16,21 @@
  */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
-#include FT_INTERNAL_SFNT_H
-#include FT_SERVICE_FONT_FORMAT_H
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftstream.h>
+#include <freetype/internal/sfnt.h>
+#include <freetype/internal/services/svfntfmt.h>
 
 #ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
-#include FT_MULTIPLE_MASTERS_H
-#include FT_SERVICE_MULTIPLE_MASTERS_H
-#include FT_SERVICE_METRICS_VARIATIONS_H
+#include <freetype/ftmm.h>
+#include <freetype/internal/services/svmm.h>
+#include <freetype/internal/services/svmetric.h>
 #endif
 
-#include FT_SERVICE_TRUETYPE_ENGINE_H
-#include FT_SERVICE_TRUETYPE_GLYF_H
-#include FT_SERVICE_PROPERTIES_H
-#include FT_DRIVER_H
+#include <freetype/internal/services/svtteng.h>
+#include <freetype/internal/services/svttglyf.h>
+#include <freetype/internal/services/svprop.h>
+#include <freetype/ftdriver.h>
 
 #include "ttdriver.h"
 #include "ttgload.h"
@@ -51,7 +50,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_ttdriver
+#define FT_COMPONENT  ttdriver
 
 
   /*
@@ -498,17 +497,19 @@
   FT_DEFINE_SERVICE_MULTIMASTERSREC(
     tt_service_gx_multi_masters,
 
-    (FT_Get_MM_Func)        NULL,                   /* get_mm         */
-    (FT_Set_MM_Design_Func) NULL,                   /* set_mm_design  */
-    (FT_Set_MM_Blend_Func)  TT_Set_MM_Blend,        /* set_mm_blend   */
-    (FT_Get_MM_Blend_Func)  TT_Get_MM_Blend,        /* get_mm_blend   */
-    (FT_Get_MM_Var_Func)    TT_Get_MM_Var,          /* get_mm_var     */
-    (FT_Set_Var_Design_Func)TT_Set_Var_Design,      /* set_var_design */
-    (FT_Get_Var_Design_Func)TT_Get_Var_Design,      /* get_var_design */
-    (FT_Set_Instance_Func)  TT_Set_Named_Instance,  /* set_instance   */
+    (FT_Get_MM_Func)             NULL,                  /* get_mm              */
+    (FT_Set_MM_Design_Func)      NULL,                  /* set_mm_design       */
+    (FT_Set_MM_Blend_Func)       TT_Set_MM_Blend,       /* set_mm_blend        */
+    (FT_Get_MM_Blend_Func)       TT_Get_MM_Blend,       /* get_mm_blend        */
+    (FT_Get_MM_Var_Func)         TT_Get_MM_Var,         /* get_mm_var          */
+    (FT_Set_Var_Design_Func)     TT_Set_Var_Design,     /* set_var_design      */
+    (FT_Get_Var_Design_Func)     TT_Get_Var_Design,     /* get_var_design      */
+    (FT_Set_Instance_Func)       TT_Set_Named_Instance, /* set_instance        */
+    (FT_Set_MM_WeightVector_Func)NULL,                  /* set_mm_weightvector */
+    (FT_Get_MM_WeightVector_Func)NULL,                  /* get_mm_weightvector */
 
-    (FT_Get_Var_Blend_Func) tt_get_var_blend,       /* get_var_blend  */
-    (FT_Done_Blend_Func)    tt_done_blend           /* done_blend     */
+    (FT_Get_Var_Blend_Func)      tt_get_var_blend,      /* get_var_blend       */
+    (FT_Done_Blend_Func)         tt_done_blend          /* done_blend          */
   )
 
   FT_DEFINE_SERVICE_METRICSVARIATIONSREC(

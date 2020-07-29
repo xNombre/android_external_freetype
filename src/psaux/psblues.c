@@ -37,7 +37,7 @@
 
 
 #include "psft.h"
-#include FT_INTERNAL_DEBUG_H
+#include <freetype/internal/ftdebug.h>
 
 #include "psblues.h"
 #include "pshints.h"
@@ -51,7 +51,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_cf2blues
+#define FT_COMPONENT  cf2blues
 
 
   /*

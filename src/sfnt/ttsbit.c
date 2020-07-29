@@ -4,7 +4,7 @@
  *
  *   TrueType and OpenType embedded bitmap support (body).
  *
- * Copyright 2005-2018 by
+ * Copyright (C) 2005-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * Copyright 2013 by Google, Inc.
@@ -19,11 +19,10 @@
  */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
-#include FT_TRUETYPE_TAGS_H
-#include FT_BITMAP_H
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftstream.h>
+#include <freetype/tttags.h>
+#include <freetype/ftbitmap.h>
 
 
 #ifdef TT_CONFIG_OPTION_EMBEDDED_BITMAPS
@@ -43,7 +42,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_ttsbit
+#define FT_COMPONENT  ttsbit
 
 
   FT_LOCAL_DEF( FT_Error )
@@ -348,7 +347,7 @@
             FT_TRACE2(( "tt_face_load_strike_metrics:"
                         " sanitizing invalid ascender and descender\n"
                         "                            "
-                        " values for strike %d (%dppem, %dppem)\n",
+                        " values for strike %ld (%dppem, %dppem)\n",
                         strike_index,
                         metrics->x_ppem, metrics->y_ppem ));
 
@@ -1014,8 +1013,8 @@
     for ( nn = 0; nn < num_components; nn++ )
     {
       FT_UInt  gindex = FT_NEXT_USHORT( p );
-      FT_Byte  dx     = FT_NEXT_BYTE( p );
-      FT_Byte  dy     = FT_NEXT_BYTE( p );
+      FT_Char  dx     = FT_NEXT_CHAR( p );
+      FT_Char  dy     = FT_NEXT_CHAR( p );
 
 
       /* NB: a recursive call */

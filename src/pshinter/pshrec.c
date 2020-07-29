@@ -4,7 +4,7 @@
  *
  *   FreeType PostScript hints recorder (body).
  *
- * Copyright 2001-2018 by
+ * Copyright (C) 2001-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -16,11 +16,10 @@
  */
 
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_INTERNAL_OBJECTS_H
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_CALC_H
+#include <freetype/freetype.h>
+#include <freetype/internal/ftobjs.h>
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftcalc.h>
 
 #include "pshrec.h"
 #include "pshalgo.h"
@@ -28,7 +27,7 @@
 #include "pshnterr.h"
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_pshrec
+#define FT_COMPONENT  pshrec
 
 #ifdef DEBUG_HINTER
   PS_Hints  ps_debug_hints         = NULL;
@@ -666,7 +665,7 @@
       if ( len == -21 )
       {
         flags |= PS_HINT_FLAG_BOTTOM;
-        pos   += len;
+        pos    = ADD_INT( pos, len );
       }
       len = 0;
     }
@@ -875,7 +874,7 @@
       if ( error )
       {
         FT_ERROR(( "ps_hints_stem: could not add stem"
-                   " (%d,%d) to hints table\n", stems[0], stems[1] ));
+                   " (%ld,%ld) to hints table\n", stems[0], stems[1] ));
 
         hints->error = error;
         return;
@@ -1187,7 +1186,7 @@
       /* compute integer stem positions in font units */
       for ( n = 0; n < count * 2; n++ )
       {
-        y       += coords[n];
+        y        = ADD_LONG( y, coords[n] );
         stems[n] = FIXED_TO_INT( y );
       }
 

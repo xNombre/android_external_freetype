@@ -4,7 +4,7 @@
  *
  *   TrueType and OpenType colored glyph layer support (body).
  *
- * Copyright 2018 by
+ * Copyright (C) 2018-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * Originally written by Shao Yu Zhang <shaozhang@fb.com>.
@@ -27,11 +27,10 @@
    */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
-#include FT_TRUETYPE_TAGS_H
-#include FT_COLOR_H
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftstream.h>
+#include <freetype/tttags.h>
+#include <freetype/ftcolor.h>
 
 
 #ifdef TT_CONFIG_OPTION_COLOR_LAYERS
@@ -77,7 +76,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_ttcolr
+#define FT_COMPONENT  ttcolr
 
 
   FT_LOCAL_DEF( FT_Error )

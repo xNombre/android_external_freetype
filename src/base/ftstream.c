@@ -4,7 +4,7 @@
  *
  *   I/O stream support (body).
  *
- * Copyright 2000-2018 by
+ * Copyright (C) 2000-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -16,9 +16,8 @@
  */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_STREAM_H
-#include FT_INTERNAL_DEBUG_H
+#include <freetype/internal/ftstream.h>
+#include <freetype/internal/ftdebug.h>
 
 
   /**************************************************************************
@@ -28,7 +27,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_stream
+#define FT_COMPONENT  stream
 
 
   FT_BASE_DEF( void )
@@ -222,11 +221,11 @@
 
 #ifdef FT_DEBUG_MEMORY
       ft_mem_free( memory, *pbytes );
-      *pbytes = NULL;
 #else
       FT_FREE( *pbytes );
 #endif
     }
+
     *pbytes = NULL;
   }
 
@@ -238,6 +237,8 @@
     FT_Error  error = FT_Err_Ok;
     FT_ULong  read_bytes;
 
+
+    FT_TRACE7(( "FT_Stream_EnterFrame: %ld bytes\n", count ));
 
     /* check for nested frame access */
     FT_ASSERT( stream && stream->cursor == 0 );
@@ -282,8 +283,9 @@
         FT_FREE( stream->base );
         error = FT_THROW( Invalid_Stream_Operation );
       }
+
       stream->cursor = stream->base;
-      stream->limit  = stream->cursor + count;
+      stream->limit  = FT_OFFSET( stream->cursor, count );
       stream->pos   += read_bytes;
     }
     else
@@ -322,12 +324,15 @@
     /*  In this case, the loader code handles the 0-length table          */
     /*  gracefully; however, stream.cursor is really set to 0 by the      */
     /*  FT_Stream_EnterFrame() call, and this is not an error.            */
-    /*                                                                    */
+
+    FT_TRACE7(( "FT_Stream_ExitFrame\n" ));
+
     FT_ASSERT( stream );
 
     if ( stream->read )
     {
       FT_Memory  memory = stream->memory;
+
 
 #ifdef FT_DEBUG_MEMORY
       ft_mem_free( memory, stream->base );
@@ -336,6 +341,7 @@
       FT_FREE( stream->base );
 #endif
     }
+
     stream->cursor = NULL;
     stream->limit  = NULL;
   }

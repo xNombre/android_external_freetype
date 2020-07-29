@@ -4,7 +4,7 @@
  *
  *   TrueType bytecode interpreter (specification).
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -19,7 +19,6 @@
 #ifndef TTINTERP_H_
 #define TTINTERP_H_
 
-#include <ft2build.h>
 #include "ttobjs.h"
 
 
@@ -352,7 +351,7 @@ FT_BEGIN_HEADER
      *     https://www.microsoft.com/typography/cleartype/truetypecleartype.aspx
      *
      * [3] Beat Stamm describes it in more detail:
-     *     http://www.beatstamm.com/typography/RTRCh4.htm#Sec12
+     *     http://rastertragedy.com/RTRCh4.htm#Sec12.
      *
      * [4] The list of `native ClearType' fonts is small at the time of this
      *     writing; I found the following on a Windows 10 Update 1511

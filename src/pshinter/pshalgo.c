@@ -4,7 +4,7 @@
  *
  *   PostScript hinting algorithm (body).
  *
- * Copyright 2001-2018 by
+ * Copyright (C) 2001-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used
@@ -16,17 +16,16 @@
  */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_OBJECTS_H
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_CALC_H
+#include <freetype/internal/ftobjs.h>
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftcalc.h>
 #include "pshalgo.h"
 
 #include "pshnterr.h"
 
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_pshalgo
+#define FT_COMPONENT  pshalgo
 
 
 #ifdef DEBUG_HINTER
@@ -53,8 +52,8 @@
   psh_hint_overlap( PSH_Hint  hint1,
                     PSH_Hint  hint2 )
   {
-    return hint1->org_pos + hint1->org_len >= hint2->org_pos &&
-           hint2->org_pos + hint2->org_len >= hint1->org_pos;
+    return ADD_INT( hint1->org_pos, hint1->org_len ) >= hint2->org_pos &&
+           ADD_INT( hint2->org_pos, hint2->org_len ) >= hint1->org_pos;
   }
 
 
@@ -479,7 +478,7 @@
 
       if ( dimension == 1 )
         psh_blues_snap_stem( &globals->blues,
-                             hint->org_pos + hint->org_len,
+                             ADD_INT( hint->org_pos, hint->org_len ),
                              hint->org_pos,
                              &align );
 
@@ -703,7 +702,7 @@
 
       if ( dimension == 1 )
         psh_blues_snap_stem( &globals->blues,
-                             hint->org_pos + hint->org_len,
+                             ADD_INT( hint->org_pos, hint->org_len ),
                              hint->org_pos,
                              &align );
 
@@ -1538,8 +1537,8 @@
             PSH_Hint  hint = sort[nn];
 
 
-            if ( org_u >= hint->org_pos                 &&
-                org_u <= hint->org_pos + hint->org_len )
+            if ( org_u >=          hint->org_pos                  &&
+                 org_u <= ADD_INT( hint->org_pos, hint->org_len ) )
             {
               point->hint = hint;
               break;

@@ -4,7 +4,7 @@
  *
  *   Auto-fitter module implementation (body).
  *
- * Copyright 2003-2018 by
+ * Copyright (C) 2003-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -53,10 +53,10 @@
   void*  _af_debug_hints = _af_debug_hints_rec;
 #endif
 
-#include FT_INTERNAL_OBJECTS_H
-#include FT_INTERNAL_DEBUG_H
-#include FT_DRIVER_H
-#include FT_SERVICE_PROPERTIES_H
+#include <freetype/internal/ftobjs.h>
+#include <freetype/internal/ftdebug.h>
+#include <freetype/ftdriver.h>
+#include <freetype/internal/services/svprop.h>
 
 
   /**************************************************************************
@@ -66,7 +66,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_afmodule
+#define FT_COMPONENT  afmodule
 
 
   static FT_Error
@@ -149,7 +149,7 @@
       if ( !af_style_classes[ss] )
       {
         FT_TRACE0(( "af_property_set: Invalid value %d for property `%s'\n",
-                    fallback_script, property_name ));
+                    *fallback_script, property_name ));
         return FT_THROW( Invalid_Argument );
       }
 
@@ -507,7 +507,7 @@
                                   glyph_index, load_flags );
 
 #ifdef FT_DEBUG_LEVEL_TRACE
-    if ( ft_trace_levels[FT_COMPONENT] )
+    if ( ft_trace_levels[FT_TRACE_COMP( FT_COMPONENT )] )
     {
 #endif
       af_glyph_hints_dump_points( hints, 0 );
@@ -550,8 +550,8 @@
     NULL,                                                    /* reset_face */
     NULL,                                              /* get_global_hints */
     NULL,                                             /* done_global_hints */
-    (FT_AutoHinter_GlyphLoadFunc)af_autofitter_load_glyph )  /* load_glyph */
-
+    (FT_AutoHinter_GlyphLoadFunc)af_autofitter_load_glyph    /* load_glyph */
+  )
 
   FT_DEFINE_MODULE(
     autofit_module_class,

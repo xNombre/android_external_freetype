@@ -4,7 +4,7 @@
  *
  *   OpenType font driver implementation (body).
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -16,18 +16,17 @@
  */
 
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
-#include FT_INTERNAL_SFNT_H
-#include FT_INTERNAL_POSTSCRIPT_AUX_H
-#include FT_INTERNAL_POSTSCRIPT_PROPS_H
-#include FT_SERVICE_CID_H
-#include FT_SERVICE_POSTSCRIPT_INFO_H
-#include FT_SERVICE_POSTSCRIPT_NAME_H
-#include FT_SERVICE_TT_CMAP_H
-#include FT_SERVICE_CFF_TABLE_LOAD_H
+#include <freetype/freetype.h>
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftstream.h>
+#include <freetype/internal/sfnt.h>
+#include <freetype/internal/psaux.h>
+#include <freetype/internal/ftpsprop.h>
+#include <freetype/internal/services/svcid.h>
+#include <freetype/internal/services/svpsinfo.h>
+#include <freetype/internal/services/svpostnm.h>
+#include <freetype/internal/services/svttcmap.h>
+#include <freetype/internal/services/svcfftl.h>
 
 #include "cffdrivr.h"
 #include "cffgload.h"
@@ -37,16 +36,16 @@
 #include "cffobjs.h"
 
 #ifdef TT_CONFIG_OPTION_GX_VAR_SUPPORT
-#include FT_SERVICE_MULTIPLE_MASTERS_H
-#include FT_SERVICE_METRICS_VARIATIONS_H
+#include <freetype/internal/services/svmm.h>
+#include <freetype/internal/services/svmetric.h>
 #endif
 
 #include "cfferrs.h"
 
-#include FT_SERVICE_FONT_FORMAT_H
-#include FT_SERVICE_GLYPH_DICT_H
-#include FT_SERVICE_PROPERTIES_H
-#include FT_DRIVER_H
+#include <freetype/internal/services/svfntfmt.h>
+#include <freetype/internal/services/svgldict.h>
+#include <freetype/internal/services/svprop.h>
+#include <freetype/ftdriver.h>
 
 
   /**************************************************************************
@@ -56,7 +55,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_cffdriver
+#define FT_COMPONENT  cffdriver
 
 
   /*************************************************************************/
@@ -348,7 +347,7 @@
         FT_ERROR(( "cff_get_glyph_name:"
                    " cannot get glyph name from a CFF2 font\n"
                    "                   "
-                   " without the `PSNames' module\n" ));
+                   " without the `psnames' module\n" ));
         error = FT_THROW( Missing_Module );
         goto Exit;
       }
@@ -359,7 +358,7 @@
       FT_ERROR(( "cff_get_glyph_name:"
                  " cannot get glyph name from CFF & CEF fonts\n"
                  "                   "
-                 " without the `PSNames' module\n" ));
+                 " without the `psnames' module\n" ));
       error = FT_THROW( Missing_Module );
       goto Exit;
     }
@@ -381,8 +380,8 @@
 
 
   static FT_UInt
-  cff_get_name_index( CFF_Face    face,
-                      FT_String*  glyph_name )
+  cff_get_name_index( CFF_Face          face,
+                      const FT_String*  glyph_name )
   {
     CFF_Font            cff;
     CFF_Charset         charset;
@@ -415,7 +414,7 @@
         FT_ERROR(( "cff_get_name_index:"
                    " cannot get glyph index from a CFF2 font\n"
                    "                   "
-                   " without the `PSNames' module\n" ));
+                   " without the `psnames' module\n" ));
         return 0;
       }
     }
@@ -738,7 +737,7 @@
       {
         if ( dict->cid_supplement < FT_INT_MIN ||
              dict->cid_supplement > FT_INT_MAX )
-          FT_TRACE1(( "cff_get_ros: too large supplement %d is truncated\n",
+          FT_TRACE1(( "cff_get_ros: too large supplement %ld is truncated\n",
                       dict->cid_supplement ));
         *supplement = (FT_Int)dict->cid_supplement;
       }
@@ -868,6 +867,30 @@
 
 
   static FT_Error
+  cff_set_mm_weightvector( CFF_Face   face,
+                           FT_UInt    len,
+                           FT_Fixed*  weightvector )
+  {
+    FT_Service_MultiMasters  mm = (FT_Service_MultiMasters)face->mm;
+
+
+    return mm->set_mm_weightvector( FT_FACE( face ), len, weightvector );
+  }
+
+
+  static FT_Error
+  cff_get_mm_weightvector( CFF_Face   face,
+                           FT_UInt*   len,
+                           FT_Fixed*  weightvector )
+  {
+    FT_Service_MultiMasters  mm = (FT_Service_MultiMasters)face->mm;
+
+
+    return mm->get_mm_weightvector( FT_FACE( face ), len, weightvector );
+  }
+
+
+  static FT_Error
   cff_get_mm_var( CFF_Face     face,
                   FT_MM_Var*  *master )
   {
@@ -916,17 +939,19 @@
   FT_DEFINE_SERVICE_MULTIMASTERSREC(
     cff_service_multi_masters,
 
-    (FT_Get_MM_Func)        NULL,                   /* get_mm         */
-    (FT_Set_MM_Design_Func) NULL,                   /* set_mm_design  */
-    (FT_Set_MM_Blend_Func)  cff_set_mm_blend,       /* set_mm_blend   */
-    (FT_Get_MM_Blend_Func)  cff_get_mm_blend,       /* get_mm_blend   */
-    (FT_Get_MM_Var_Func)    cff_get_mm_var,         /* get_mm_var     */
-    (FT_Set_Var_Design_Func)cff_set_var_design,     /* set_var_design */
-    (FT_Get_Var_Design_Func)cff_get_var_design,     /* get_var_design */
-    (FT_Set_Instance_Func)  cff_set_instance,       /* set_instance   */
+    (FT_Get_MM_Func)             NULL,                    /* get_mm              */
+    (FT_Set_MM_Design_Func)      NULL,                    /* set_mm_design       */
+    (FT_Set_MM_Blend_Func)       cff_set_mm_blend,        /* set_mm_blend        */
+    (FT_Get_MM_Blend_Func)       cff_get_mm_blend,        /* get_mm_blend        */
+    (FT_Get_MM_Var_Func)         cff_get_mm_var,          /* get_mm_var          */
+    (FT_Set_Var_Design_Func)     cff_set_var_design,      /* set_var_design      */
+    (FT_Get_Var_Design_Func)     cff_get_var_design,      /* get_var_design      */
+    (FT_Set_Instance_Func)       cff_set_instance,        /* set_instance        */
+    (FT_Set_MM_WeightVector_Func)cff_set_mm_weightvector, /* set_mm_weightvector */
+    (FT_Get_MM_WeightVector_Func)cff_get_mm_weightvector, /* get_mm_weightvector */
 
-    (FT_Get_Var_Blend_Func) cff_get_var_blend,      /* get_var_blend  */
-    (FT_Done_Blend_Func)    cff_done_blend          /* done_blend     */
+    (FT_Get_Var_Blend_Func)      cff_get_var_blend,       /* get_var_blend       */
+    (FT_Done_Blend_Func)         cff_done_blend           /* done_blend          */
   )
 
 

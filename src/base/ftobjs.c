@@ -4,7 +4,7 @@
  *
  *   The FreeType private base classes (body).
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -16,32 +16,31 @@
  */
 
 
-#include <ft2build.h>
-#include FT_LIST_H
-#include FT_OUTLINE_H
-#include FT_FONT_FORMATS_H
+#include <freetype/ftlist.h>
+#include <freetype/ftoutln.h>
+#include <freetype/ftfntfmt.h>
 
-#include FT_INTERNAL_VALIDATE_H
-#include FT_INTERNAL_OBJECTS_H
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_RFORK_H
-#include FT_INTERNAL_STREAM_H
-#include FT_INTERNAL_SFNT_H            /* for SFNT_Load_Table_Func */
-#include FT_INTERNAL_POSTSCRIPT_AUX_H  /* for PS_Driver            */
+#include <freetype/internal/ftvalid.h>
+#include <freetype/internal/ftobjs.h>
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftrfork.h>
+#include <freetype/internal/ftstream.h>
+#include <freetype/internal/sfnt.h>          /* for SFNT_Load_Table_Func */
+#include <freetype/internal/psaux.h>         /* for PS_Driver            */
 
-#include FT_TRUETYPE_TABLES_H
-#include FT_TRUETYPE_TAGS_H
-#include FT_TRUETYPE_IDS_H
+#include <freetype/tttables.h>
+#include <freetype/tttags.h>
+#include <freetype/ttnameid.h>
 
-#include FT_SERVICE_PROPERTIES_H
-#include FT_SERVICE_SFNT_H
-#include FT_SERVICE_POSTSCRIPT_NAME_H
-#include FT_SERVICE_GLYPH_DICT_H
-#include FT_SERVICE_TT_CMAP_H
-#include FT_SERVICE_KERNING_H
-#include FT_SERVICE_TRUETYPE_ENGINE_H
+#include <freetype/internal/services/svprop.h>
+#include <freetype/internal/services/svsfnt.h>
+#include <freetype/internal/services/svpostnm.h>
+#include <freetype/internal/services/svgldict.h>
+#include <freetype/internal/services/svttcmap.h>
+#include <freetype/internal/services/svkern.h>
+#include <freetype/internal/services/svtteng.h>
 
-#include FT_DRIVER_H
+#include <freetype/ftdriver.h>
 
 #ifdef FT_CONFIG_OPTION_MAC_FONTS
 #include "ftbase.h"
@@ -50,7 +49,7 @@
 
 #ifdef FT_DEBUG_LEVEL_TRACE
 
-#include FT_BITMAP_H
+#include <freetype/ftbitmap.h>
 
 #if defined( _MSC_VER )      /* Visual C++ (and Intel C++)   */
   /* We disable the warning `conversion from XXX to YYY,     */
@@ -278,7 +277,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_objs
+#define FT_COMPONENT  objs
 
 
   /*************************************************************************/
@@ -342,7 +341,9 @@
   }
 
 
-  FT_BASE_DEF( void )
+  /* overflow-resistant presetting of bitmap position and dimensions; */
+  /* also check whether the size is too large for rendering           */
+  FT_BASE_DEF( FT_Bool )
   ft_glyphslot_preset_bitmap( FT_GlyphSlot      slot,
                               FT_Render_Mode    mode,
                               const FT_Vector*  origin )
@@ -352,15 +353,15 @@
 
     FT_Pixel_Mode  pixel_mode;
 
-    FT_BBox  cbox;
+    FT_BBox  cbox, pbox;
     FT_Pos   x_shift = 0;
     FT_Pos   y_shift = 0;
     FT_Pos   x_left, y_top;
     FT_Pos   width, height, pitch;
 
 
-    if ( slot->internal && ( slot->internal->flags & FT_GLYPH_OWN_BITMAP ) )
-      return;
+    if ( slot->format != FT_GLYPH_FORMAT_OUTLINE )
+      return 1;
 
     if ( origin )
     {
@@ -372,70 +373,89 @@
     /* taking into account the origin shift      */
     FT_Outline_Get_CBox( outline, &cbox );
 
-    cbox.xMin += x_shift;
-    cbox.yMin += y_shift;
-    cbox.xMax += x_shift;
-    cbox.yMax += y_shift;
+    /* rough estimate of pixel box */
+    pbox.xMin = ( cbox.xMin >> 6 ) + ( x_shift >> 6 );
+    pbox.yMin = ( cbox.yMin >> 6 ) + ( y_shift >> 6 );
+    pbox.xMax = ( cbox.xMax >> 6 ) + ( x_shift >> 6 );
+    pbox.yMax = ( cbox.yMax >> 6 ) + ( y_shift >> 6 );
+
+    /* tiny remainder box */
+    cbox.xMin = ( cbox.xMin & 63 ) + ( x_shift & 63 );
+    cbox.yMin = ( cbox.yMin & 63 ) + ( y_shift & 63 );
+    cbox.xMax = ( cbox.xMax & 63 ) + ( x_shift & 63 );
+    cbox.yMax = ( cbox.yMax & 63 ) + ( y_shift & 63 );
 
     switch ( mode )
     {
     case FT_RENDER_MODE_MONO:
       pixel_mode = FT_PIXEL_MODE_MONO;
 #if 1
-      /* undocumented but confirmed: bbox values get rounded    */
-      /* unless the rounded box can collapse for a narrow glyph */
-      if ( cbox.xMax - cbox.xMin < 64 )
+      /* x */
+
+      /* undocumented but confirmed: bbox values get rounded;    */
+      /* we do asymmetric rounding so that the center of a pixel */
+      /* gets always included                                    */
+
+      pbox.xMin += ( cbox.xMin + 31 ) >> 6;
+      pbox.xMax += ( cbox.xMax + 32 ) >> 6;
+
+      /* if the bbox collapsed, we add a pixel based on the total */
+      /* rounding remainder to cover most of the original cbox    */
+
+      if ( pbox.xMin == pbox.xMax )
       {
-        cbox.xMin = ( cbox.xMin + cbox.xMax ) / 2 - 32;
-        cbox.xMax = cbox.xMin + 64;
+        if ( ( ( cbox.xMin + 31 ) & 63 ) - 31 +
+             ( ( cbox.xMax + 32 ) & 63 ) - 32 < 0 )
+          pbox.xMin -= 1;
+        else
+          pbox.xMax += 1;
       }
 
-      cbox.xMin = FT_PIX_ROUND_LONG( cbox.xMin );
-      cbox.xMax = FT_PIX_ROUND_LONG( cbox.xMax );
+      /* y */
 
-      if ( cbox.yMax - cbox.yMin < 64 )
+      pbox.yMin += ( cbox.yMin + 31 ) >> 6;
+      pbox.yMax += ( cbox.yMax + 32 ) >> 6;
+
+      if ( pbox.yMin == pbox.yMax )
       {
-        cbox.yMin = ( cbox.yMin + cbox.yMax ) / 2 - 32;
-        cbox.yMax = cbox.yMin + 64;
+        if ( ( ( cbox.yMin + 31 ) & 63 ) - 31 +
+             ( ( cbox.yMax + 32 ) & 63 ) - 32 < 0 )
+          pbox.yMin -= 1;
+        else
+          pbox.yMax += 1;
       }
-
-      cbox.yMin = FT_PIX_ROUND_LONG( cbox.yMin );
-      cbox.yMax = FT_PIX_ROUND_LONG( cbox.yMax );
 
       break;
 #else
-      goto Round;
+      goto Adjust;
 #endif
 
     case FT_RENDER_MODE_LCD:
       pixel_mode = FT_PIXEL_MODE_LCD;
       ft_lcd_padding( &cbox, slot, mode );
-      goto Round;
+      goto Adjust;
 
     case FT_RENDER_MODE_LCD_V:
       pixel_mode = FT_PIXEL_MODE_LCD_V;
       ft_lcd_padding( &cbox, slot, mode );
-      goto Round;
+      goto Adjust;
 
     case FT_RENDER_MODE_NORMAL:
     case FT_RENDER_MODE_LIGHT:
     default:
       pixel_mode = FT_PIXEL_MODE_GRAY;
-    Round:
-      cbox.xMin = FT_PIX_FLOOR( cbox.xMin );
-      cbox.yMin = FT_PIX_FLOOR( cbox.yMin );
-      cbox.xMax = FT_PIX_CEIL_LONG( cbox.xMax );
-      cbox.yMax = FT_PIX_CEIL_LONG( cbox.yMax );
+    Adjust:
+      pbox.xMin += cbox.xMin >> 6;
+      pbox.yMin += cbox.yMin >> 6;
+      pbox.xMax += ( cbox.xMax + 63 ) >> 6;
+      pbox.yMax += ( cbox.yMax + 63 ) >> 6;
     }
 
-    x_shift = SUB_LONG( x_shift, cbox.xMin );
-    y_shift = SUB_LONG( y_shift, cbox.yMin );
+    x_left = pbox.xMin;
+    y_top  = pbox.yMax;
 
-    x_left = cbox.xMin >> 6;
-    y_top  = cbox.yMax >> 6;
-
-    width  = ( (FT_ULong)cbox.xMax - (FT_ULong)cbox.xMin ) >> 6;
-    height = ( (FT_ULong)cbox.yMax - (FT_ULong)cbox.yMin ) >> 6;
+    width  = pbox.xMax - pbox.xMin;
+    height = pbox.yMax - pbox.yMin;
 
     switch ( pixel_mode )
     {
@@ -465,6 +485,16 @@
     bitmap->width      = (unsigned int)width;
     bitmap->rows       = (unsigned int)height;
     bitmap->pitch      = pitch;
+
+    if ( pbox.xMin < -0x8000 || pbox.xMax > 0x7FFF ||
+         pbox.yMin < -0x8000 || pbox.yMax > 0x7FFF )
+    {
+      FT_TRACE3(( "ft_glyphslot_preset_bitmap: [%ld %ld %ld %ld]\n",
+                  pbox.xMin, pbox.yMin, pbox.xMax, pbox.yMax ));
+      return 1;
+    }
+
+    return 0;
   }
 
 
@@ -813,7 +843,7 @@
      * - Do only auto-hinting if we have
      *
      *   - a hinter module,
-     *   - a scalable font format dealing with outlines,
+     *   - a scalable font,
      *   - not a tricky font, and
      *   - no transforms except simple slants and/or rotations by
      *     integer multiples of 90 degrees.
@@ -831,8 +861,7 @@
     if ( hinter                                           &&
          !( load_flags & FT_LOAD_NO_HINTING )             &&
          !( load_flags & FT_LOAD_NO_AUTOHINT )            &&
-         FT_DRIVER_IS_SCALABLE( driver )                  &&
-         FT_DRIVER_USES_OUTLINES( driver )                &&
+         FT_IS_SCALABLE( face )                           &&
          !FT_IS_TRICKY( face )                            &&
          ( ( load_flags & FT_LOAD_IGNORE_TRANSFORM )    ||
            ( face->internal->transform_matrix.yx == 0 &&
@@ -852,7 +881,7 @@
         /* only the new Adobe engine (for both CFF and Type 1) is `light'; */
         /* we use `strstr' to catch both `Type 1' and `CID Type 1'         */
         is_light_type1 =
-          ft_strstr( FT_Get_Font_Format( face ), "Type 1" ) != NULL   &&
+          ft_strstr( FT_Get_Font_Format( face ), "Type 1" ) != NULL &&
           ((PS_Driver)driver)->hinting_engine == FT_HINTING_ADOBE;
 
         /* the check for `num_locations' assures that we actually    */
@@ -932,8 +961,9 @@
 
 #ifdef GRID_FIT_METRICS
         if ( !( load_flags & FT_LOAD_NO_HINTING ) )
-          ft_glyphslot_grid_fit_metrics( slot,
-              FT_BOOL( load_flags & FT_LOAD_VERTICAL_LAYOUT ) );
+          ft_glyphslot_grid_fit_metrics(
+            slot,
+            FT_BOOL( load_flags & FT_LOAD_VERTICAL_LAYOUT ) );
 #endif
       }
     }
@@ -1811,15 +1841,15 @@
       /* FT2 allocator takes signed long buffer length,
        * too large value causing overflow should be checked
        */
-      FT_TRACE4(( "                 POST fragment #%d: length=0x%08x"
-                  " total pfb_len=0x%08x\n",
+      FT_TRACE4(( "                 POST fragment #%d: length=0x%08lx"
+                  " total pfb_len=0x%08lx\n",
                   i, temp, pfb_len + temp + 6 ));
 
       if ( FT_MAC_RFORK_MAX_LEN < temp               ||
            FT_MAC_RFORK_MAX_LEN - temp < pfb_len + 6 )
       {
         FT_TRACE2(( "             MacOS resource length cannot exceed"
-                    " 0x%08x\n",
+                    " 0x%08lx\n",
                     FT_MAC_RFORK_MAX_LEN ));
 
         error = FT_THROW( Invalid_Offset );
@@ -1830,13 +1860,13 @@
     }
 
     FT_TRACE2(( "             total buffer size to concatenate"
-                " %d POST fragments: 0x%08x\n",
+                " %ld POST fragments: 0x%08lx\n",
                  resource_cnt, pfb_len + 2 ));
 
     if ( pfb_len + 2 < 6 )
     {
       FT_TRACE2(( "             too long fragment length makes"
-                  " pfb_len confused: pfb_len=0x%08x\n",
+                  " pfb_len confused: pfb_len=0x%08lx\n",
                   pfb_len ));
 
       error = FT_THROW( Array_Too_Large );
@@ -1879,7 +1909,7 @@
         goto Exit2;
 
       FT_TRACE3(( "POST fragment[%d]:"
-                  " offsets=0x%08x, rlen=0x%08x, flags=0x%04x\n",
+                  " offsets=0x%08lx, rlen=0x%08lx, flags=0x%04x\n",
                   i, offsets[i], rlen, flags ));
 
       error = FT_ERR( Array_Too_Large );
@@ -1906,7 +1936,7 @@
       else
       {
         FT_TRACE3(( "    Write POST fragment #%d header (4-byte) to buffer"
-                    " %p + 0x%08x\n",
+                    " %p + 0x%08lx\n",
                     i, pfb_data, pfb_lenpos ));
 
         if ( pfb_lenpos + 3 > pfb_len + 2 )
@@ -1921,7 +1951,7 @@
           break;
 
         FT_TRACE3(( "    Write POST fragment #%d header (6-byte) to buffer"
-                    " %p + 0x%08x\n",
+                    " %p + 0x%08lx\n",
                     i, pfb_data, pfb_pos ));
 
         if ( pfb_pos + 6 > pfb_len + 2 )
@@ -1943,8 +1973,8 @@
       if ( pfb_pos > pfb_len || pfb_pos + rlen > pfb_len )
         goto Exit2;
 
-      FT_TRACE3(( "    Load POST fragment #%d (%d byte) to buffer"
-                  " %p + 0x%08x\n",
+      FT_TRACE3(( "    Load POST fragment #%d (%ld byte) to buffer"
+                  " %p + 0x%08lx\n",
                   i, rlen, pfb_data, pfb_pos ));
 
       error = FT_Stream_Read( stream, (FT_Byte *)pfb_data + pfb_pos, rlen );
@@ -2189,7 +2219,7 @@
   {
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_raccess
+#define FT_COMPONENT  raccess
 
     FT_Memory  memory = library->memory;
     FT_Error   error  = FT_ERR( Unknown_File_Format );
@@ -2229,7 +2259,7 @@
       args2.flags    = FT_OPEN_PATHNAME;
       args2.pathname = file_names[i] ? file_names[i] : args->pathname;
 
-      FT_TRACE3(( "Try rule %d: %s (offset=%d) ...",
+      FT_TRACE3(( "Try rule %d: %s (offset=%ld) ...",
                   i, args2.pathname, offsets[i] ));
 
       error = FT_Stream_New( library, &args2, &stream2 );
@@ -2267,7 +2297,7 @@
     return error;
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_objs
+#define FT_COMPONENT  objs
 
   }
 
@@ -2295,7 +2325,7 @@
     {
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_raccess
+#define FT_COMPONENT  raccess
 
 #ifdef FT_DEBUG_LEVEL_TRACE
       FT_TRACE3(( "Try as dfont: " ));
@@ -2308,7 +2338,7 @@
       FT_TRACE3(( "%s\n", error ? "failed" : "successful" ));
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_objs
+#define FT_COMPONENT  objs
 
     }
 
@@ -2706,8 +2736,8 @@
 
     /* close the attached stream */
     FT_Stream_Free( stream,
-                    (FT_Bool)( parameters->stream &&
-                               ( parameters->flags & FT_OPEN_STREAM ) ) );
+                    FT_BOOL( parameters->stream                     &&
+                             ( parameters->flags & FT_OPEN_STREAM ) ) );
 
   Exit:
     return error;
@@ -2827,6 +2857,8 @@
     if ( error )
     {
       FT_FREE( node );
+      if ( size )
+        FT_FREE( size->internal );
       FT_FREE( size );
     }
 
@@ -3182,9 +3214,9 @@
       FT_Size_Metrics*  metrics = &face->size->metrics;
 
 
-      FT_TRACE5(( "  x scale: %d (%f)\n",
+      FT_TRACE5(( "  x scale: %ld (%f)\n",
                   metrics->x_scale, metrics->x_scale / 65536.0 ));
-      FT_TRACE5(( "  y scale: %d (%f)\n",
+      FT_TRACE5(( "  y scale: %ld (%f)\n",
                   metrics->y_scale, metrics->y_scale / 65536.0 ));
       FT_TRACE5(( "  ascender: %f\n",    metrics->ascender / 64.0 ));
       FT_TRACE5(( "  descender: %f\n",   metrics->descender / 64.0 ));
@@ -3257,9 +3289,9 @@
       FT_Size_Metrics*  metrics = &face->size->metrics;
 
 
-      FT_TRACE5(( "  x scale: %d (%f)\n",
+      FT_TRACE5(( "  x scale: %ld (%f)\n",
                   metrics->x_scale, metrics->x_scale / 65536.0 ));
-      FT_TRACE5(( "  y scale: %d (%f)\n",
+      FT_TRACE5(( "  y scale: %ld (%f)\n",
                   metrics->y_scale, metrics->y_scale / 65536.0 ));
       FT_TRACE5(( "  ascender: %f\n",    metrics->ascender / 64.0 ));
       FT_TRACE5(( "  descender: %f\n",   metrics->descender / 64.0 ));
@@ -3419,7 +3451,7 @@
               if ( akerning->x != orig_x_rounded ||
                    akerning->y != orig_y_rounded )
                 FT_TRACE5(( "FT_Get_Kerning: horizontal kerning"
-                            " (%d, %d) scaled down to (%d, %d) pixels\n",
+                            " (%ld, %ld) scaled down to (%ld, %ld) pixels\n",
                             orig_x_rounded / 64, orig_y_rounded / 64,
                             akerning->x / 64, akerning->y / 64 ));
             }
@@ -3691,7 +3723,7 @@
       if ( charcode > 0xFFFFFFFFUL )
       {
         FT_TRACE1(( "FT_Get_Char_Index: too large charcode" ));
-        FT_TRACE1(( " 0x%x is truncated\n", charcode ));
+        FT_TRACE1(( " 0x%lx is truncated\n", charcode ));
       }
 
       result = cmap->clazz->char_index( cmap, (FT_UInt32)charcode );
@@ -3867,13 +3899,13 @@
         {
           FT_TRACE1(( "FT_Face_GetCharVariantIndex:"
                       " too large charcode" ));
-          FT_TRACE1(( " 0x%x is truncated\n", charcode ));
+          FT_TRACE1(( " 0x%lx is truncated\n", charcode ));
         }
         if ( variantSelector > 0xFFFFFFFFUL )
         {
           FT_TRACE1(( "FT_Face_GetCharVariantIndex:"
                       " too large variantSelector" ));
-          FT_TRACE1(( " 0x%x is truncated\n", variantSelector ));
+          FT_TRACE1(( " 0x%lx is truncated\n", variantSelector ));
         }
 
         result = vcmap->clazz->char_var_index( vcmap, ucmap,
@@ -3910,13 +3942,13 @@
         {
           FT_TRACE1(( "FT_Face_GetCharVariantIsDefault:"
                       " too large charcode" ));
-          FT_TRACE1(( " 0x%x is truncated\n", charcode ));
+          FT_TRACE1(( " 0x%lx is truncated\n", charcode ));
         }
         if ( variantSelector > 0xFFFFFFFFUL )
         {
           FT_TRACE1(( "FT_Face_GetCharVariantIsDefault:"
                       " too large variantSelector" ));
-          FT_TRACE1(( " 0x%x is truncated\n", variantSelector ));
+          FT_TRACE1(( " 0x%lx is truncated\n", variantSelector ));
         }
 
         result = vcmap->clazz->char_var_default( vcmap,
@@ -3979,7 +4011,7 @@
         if ( charcode > 0xFFFFFFFFUL )
         {
           FT_TRACE1(( "FT_Face_GetVariantsOfChar: too large charcode" ));
-          FT_TRACE1(( " 0x%x is truncated\n", charcode ));
+          FT_TRACE1(( " 0x%lx is truncated\n", charcode ));
         }
 
         result = vcmap->clazz->charvariant_list( vcmap, memory,
@@ -4013,7 +4045,7 @@
         if ( variantSelector > 0xFFFFFFFFUL )
         {
           FT_TRACE1(( "FT_Get_Char_Index: too large variantSelector" ));
-          FT_TRACE1(( " 0x%x is truncated\n", variantSelector ));
+          FT_TRACE1(( " 0x%lx is truncated\n", variantSelector ));
         }
 
         result = vcmap->clazz->variantchar_list( vcmap, memory,
@@ -4028,8 +4060,8 @@
   /* documentation is in freetype.h */
 
   FT_EXPORT_DEF( FT_UInt )
-  FT_Get_Name_Index( FT_Face     face,
-                     FT_String*  glyph_name )
+  FT_Get_Name_Index( FT_Face           face,
+                     const FT_String*  glyph_name )
   {
     FT_UInt  result = 0;
 
@@ -4617,7 +4649,7 @@
 #ifdef FT_DEBUG_LEVEL_TRACE
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_checksum
+#define FT_COMPONENT  checksum
 
     /*
      * Computing the MD5 checksum is expensive, unnecessarily distorting a
@@ -4731,7 +4763,7 @@
     }
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_objs
+#define FT_COMPONENT  objs
 
 #endif /* FT_DEBUG_LEVEL_TRACE */
 
@@ -5124,9 +5156,9 @@
     service = (FT_Service_Properties)interface;
 
     if ( set )
-      missing_func = (FT_Bool)( !service->set_property );
+      missing_func = FT_BOOL( !service->set_property );
     else
-      missing_func = (FT_Bool)( !service->get_property );
+      missing_func = FT_BOOL( !service->get_property );
 
     if ( missing_func )
     {

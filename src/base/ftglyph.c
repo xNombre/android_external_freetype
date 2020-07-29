@@ -4,7 +4,7 @@
  *
  *   FreeType convenience functions to handle glyphs (body).
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -28,13 +28,14 @@
    */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
+#include <freetype/internal/ftdebug.h>
 
-#include FT_GLYPH_H
-#include FT_OUTLINE_H
-#include FT_BITMAP_H
-#include FT_INTERNAL_OBJECTS_H
+#include <freetype/ftglyph.h>
+#include <freetype/ftoutln.h>
+#include <freetype/ftbitmap.h>
+#include <freetype/internal/ftobjs.h>
+
+#include "ftbase.h"
 
 
   /**************************************************************************
@@ -44,7 +45,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_glyph
+#define FT_COMPONENT  glyph
 
 
   /*************************************************************************/
@@ -76,7 +77,7 @@
     /* do lazy copying whenever possible */
     if ( slot->internal->flags & FT_GLYPH_OWN_BITMAP )
     {
-      glyph->bitmap = slot->bitmap;
+      glyph->bitmap          = slot->bitmap;
       slot->internal->flags &= ~FT_GLYPH_OWN_BITMAP;
     }
     else
@@ -400,8 +401,8 @@
   FT_Get_Glyph( FT_GlyphSlot  slot,
                 FT_Glyph     *aglyph )
   {
-    FT_Error    error;
-    FT_Glyph    glyph;
+    FT_Error  error;
+    FT_Glyph  glyph;
 
 
     if ( !slot )
@@ -513,8 +514,8 @@
     {
       acbox->xMin = FT_PIX_FLOOR( acbox->xMin );
       acbox->yMin = FT_PIX_FLOOR( acbox->yMin );
-      acbox->xMax = FT_PIX_CEIL( acbox->xMax );
-      acbox->yMax = FT_PIX_CEIL( acbox->yMax );
+      acbox->xMax = FT_PIX_CEIL_LONG( acbox->xMax );
+      acbox->yMax = FT_PIX_CEIL_LONG( acbox->yMax );
     }
 
     /* convert to integer pixels if needed */

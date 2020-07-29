@@ -4,7 +4,7 @@
  *
  *   FreeType PFR loader (body).
  *
- * Copyright 2002-2018 by
+ * Copyright (C) 2002-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -17,13 +17,13 @@
 
 
 #include "pfrload.h"
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftstream.h>
 
 #include "pfrerror.h"
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_pfr
+#define FT_COMPONENT  pfr
 
 
   /*

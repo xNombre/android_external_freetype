@@ -4,7 +4,7 @@
  *
  *   FreeType PFR object methods (body).
  *
- * Copyright 2002-2018 by
+ * Copyright (C) 2002-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -21,15 +21,15 @@
 #include "pfrgload.h"
 #include "pfrcmap.h"
 #include "pfrsbit.h"
-#include FT_OUTLINE_H
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_CALC_H
-#include FT_TRUETYPE_IDS_H
+#include <freetype/ftoutln.h>
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftcalc.h>
+#include <freetype/ttnameid.h>
 
 #include "pfrerror.h"
 
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_pfr
+#define FT_COMPONENT  pfr
 
 
   /*************************************************************************/
@@ -122,7 +122,7 @@
               stream,
               (FT_UInt)( face_index & 0xFFFF ),
               face->header.log_dir_offset,
-              FT_BOOL( face->header.phy_font_max_size_high != 0 ) );
+              FT_BOOL( face->header.phy_font_max_size_high ) );
     if ( error )
       goto Exit;
 
@@ -370,7 +370,7 @@
       FT_Bool            scaling;
 
 
-      scaling = FT_BOOL( ( load_flags & FT_LOAD_NO_SCALE ) == 0 );
+      scaling = FT_BOOL( !( load_flags & FT_LOAD_NO_SCALE ) );
 
       /* copy outline data */
       *outline = slot->glyph.loader->base.outline;
@@ -378,7 +378,7 @@
       outline->flags &= ~FT_OUTLINE_OWNER;
       outline->flags |= FT_OUTLINE_REVERSE_FILL;
 
-      if ( size && pfrsize->metrics.y_ppem < 24 )
+      if ( pfrsize->metrics.y_ppem < 24 )
         outline->flags |= FT_OUTLINE_HIGH_PRECISION;
 
       /* compute the advance vector */

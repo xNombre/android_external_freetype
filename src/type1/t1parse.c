@@ -4,7 +4,7 @@
  *
  *   Type 1 parser (body).
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2020 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -33,10 +33,9 @@
    */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_STREAM_H
-#include FT_INTERNAL_POSTSCRIPT_AUX_H
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/ftstream.h>
+#include <freetype/internal/psaux.h>
 
 #include "t1parse.h"
 
@@ -50,7 +49,7 @@
    * messages during execution.
    */
 #undef  FT_COMPONENT
-#define FT_COMPONENT  trace_t1parse
+#define FT_COMPONENT  t1parse
 
 
   /*************************************************************************/
